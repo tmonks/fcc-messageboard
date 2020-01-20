@@ -1,24 +1,42 @@
 'use strict';
 
-var express     = require('express');
-var bodyParser  = require('body-parser');
-var expect      = require('chai').expect;
-var cors        = require('cors');
+const express     = require('express');
+const bodyParser  = require('body-parser');
+const expect      = require('chai').expect;
+const cors        = require('cors');
+const helmet      = require('helmet');
 
-var apiRoutes         = require('./routes/api.js');
-var fccTestingRoutes  = require('./routes/fcctesting.js');
-var runner            = require('./test-runner');
+const apiRoutes         = require('./routes/api.js');
+const fccTestingRoutes  = require('./routes/fcctesting.js');
+const runner            = require('./test-runner');
 
-var app = express();
+const mongoose        = require('mongoose');
+const dbConfig = {
+  useNewUrlParser: true,
+  useFindAndModify: false,
+  useCreateIndex: true,
+  useUnifiedTopology: true
+}
+
+
+const app = express();
 
 app.use('/public', express.static(process.cwd() + '/public'));
 
 app.use(cors({origin: '*'})); //For FCC testing purposes only
 
+// allow our site to be run in an iframe only on our own pages
+app.use(helmet.frameguard({ action: 'sameorigin' }));
+// disable DNS prefetching
+app.use(helmet.dnsPrefetchControl());
+// allow site to set the referrer for own pages
+app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
+
+
 // app.use(bodyParser.json());
 // app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.urlencoded()); //Parse URL-encoded bodies
+app.use(express.urlencoded({ extended: false })); //Parse URL-encoded bodies
 
 //Sample front-end
 app.route('/b/:board/')
@@ -52,21 +70,28 @@ app.use(function(req, res, next) {
     .send('Not Found');
 });
 
-//Start our server and tests!
-app.listen(process.env.PORT || 3000, function () {
-  console.log("Listening on port " + process.env.PORT);
-  if(process.env.NODE_ENV==='test') {
-    console.log('Running Tests...');
-    setTimeout(function () {
-      try {
-        runner.run();
-      } catch(e) {
-        var error = e;
-          console.log('Tests are not valid:');
-          console.log(error);
+//Start database, server and tests!
+
+mongoose.connect(process.env.DB, dbConfig)
+  .then(result => {
+    console.log("Database connected");
+    app.listen(process.env.PORT || 3000, function () {
+      console.log("Listening on port " + process.env.PORT);
+      if(process.env.NODE_ENV==='test') {
+        console.log('Running Tests...');
+        setTimeout(function () {
+          try {
+            runner.run();
+          } catch(e) {
+            const error = e;
+              console.log('Tests are not valid:');
+              console.log(error);
+          }
+        }, 1500);
       }
-    }, 1500);
-  }
-});
+    });
+  
+  
+}).catch(err => console.log("Error connecting database", err));
 
 module.exports = app; //for testing
