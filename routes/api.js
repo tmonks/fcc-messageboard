@@ -8,6 +8,9 @@
 
 'use strict';
 
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
 const mongoose = require('mongoose');
 const replySchema = new mongoose.Schema({
   text: { type: String, required: true },
@@ -42,13 +45,13 @@ module.exports = function (app) {
         return;
       };
       
-      const newThread = new Thread({
-        board,
-        text,
-        delete_password
-      });
-    
       try {
+        const hash = await bcrypt.hash(delete_password, saltRounds);
+        const newThread = new Thread({
+          board,
+          text,
+          delete_password: hash
+        });
         newThread.save();
         res.send("Thread saved!");
       } catch(err) {
@@ -56,6 +59,48 @@ module.exports = function (app) {
         res.send("Error saving new thread to db");
       }
 
+    })
+    
+    // PUT to report a thread_id
+    .put(async (req, res) => {
+      const thread_id = req.body.thread_id;
+      if(!thread_id) {
+        res.send("Missing thread_id");
+        return;
+      }
+      console.log("Report request received for ", thread_id);
+    
+      try {
+        await Thread.findByIdAndUpdate(thread_id, { reported: true });
+        res.send("success");  
+      } catch(err) {
+        console.log(err);
+        res.send("Error reporting thread");
+      }
+    })
+  
+    // DELETE a thread_id
+    .delete(async (req, res) => {
+      const { thread_id, delete_password } = req.body;
+      if(!thread_id || !delete_password) {
+        res.send("Missing parameter");
+        return;
+      }
+      
+      try {
+        const thread = await Thread.findById(thread_id);
+        //console.log("attempting to delete thread: " + thread_id + " " + thread.text + " with pw " + delete_password);
+        if(await bcrypt.compare(delete_password, thread.delete_password)) {
+          //console.log("Password matches, deleting thread");
+          await Thread.findByIdAndDelete(thread_id);
+          res.send("success");
+        } else {
+          res.status(403).send("incorrect password");
+        }
+      } catch(err) {
+        console.log(err);
+        res.send("Error deleting thread");
+      }
     })
     // GET 10 most recent bumped threads with 3 most recent replies
     .get(async (req, res) => {
@@ -65,7 +110,7 @@ module.exports = function (app) {
         return;
       }
     
-      console.log("GET request received for board " + board);
+      //console.log("GET request received for board " + board);
       
       try {
         const results = await Thread.find(
@@ -102,7 +147,8 @@ module.exports = function (app) {
       }
     
       try {
-        const newReply = new Reply({ text, delete_password, reported: false})
+        const hash = await bcrypt.hash(delete_password, saltRounds);
+        const newReply = new Reply({ text, delete_password: hash, reported: false})
         
         // Classic way of find, update, then save
         // const thread = await Thread.findById(thread_id);
@@ -117,7 +163,7 @@ module.exports = function (app) {
             "$push": { "replies": newReply }
           });
         
-        console.log("Reply saved to " + thread_id + " successfully!");
+        //console.log("Reply saved to " + thread_id + " successfully!");
         res.send("Reply saved!");
       } catch(err) {
         console.log(err);
@@ -125,6 +171,53 @@ module.exports = function (app) {
       }
     })
 
+    // PUT a reply_id and thread_id to report a reply
+    .put(async (req, res) => {
+      const { thread_id, reply_id } = req.body;
+      if(!thread_id || !reply_id) {
+        res.send("Missing parameter");
+        return;
+      }
+      //console.log("Received report request for ", thread_id, reply_id);
+    
+      try {
+        const thread = await Thread.findByIdAndUpdate(thread_id);
+        const reply = thread.replies.id(reply_id);
+        if(!reply) { throw new Error("thread not found"); }
+        reply.reported = true;
+        await thread.save();
+        //console.log("Updated reply: ", reply);
+        res.send("success");
+      } catch(err) {
+        console.log(err);
+        res.send("Error reporting thread");
+      }
+    })
+  
+    // DELETE a reply_id from thread_id
+    .delete(async (req, res) => {
+      const { thread_id, reply_id, delete_password } = req.body;
+      if(!thread_id || !reply_id || !delete_password ) {
+        res.send("Missing parameter");
+        return;
+      }
+      //console.log("Received delete request for ", thread_id, reply_id);
+    
+      try {
+        const thread = await Thread.findById(thread_id);
+        const reply = thread.replies.id(reply_id);
+        if(await bcrypt.compare(delete_password, reply.delete_password)) {
+          reply.text = "[deleted]";
+          await thread.save();
+          res.send("success");
+        } else {
+          res.status(403).send("incorrect password");
+        }
+      } catch(err) {
+        console.log(err);
+        res.send("Error deleting reply");
+      } 
+    })
     // GET entire thread for thread_id
     .get(async (req, res) => {
       const board = req.params.board;
@@ -134,7 +227,7 @@ module.exports = function (app) {
         return;
       }
     
-      console.log("GET request received for board " + board + " and thread " + thread_id);
+      //console.log("GET request received for board " + board + " and thread " + thread_id);
       
       try {
         const results = await Thread.findById(thread_id, { 
