@@ -6,10 +6,10 @@
 *       (if additional are added, keep them at the very end!)
 */
 
-var chaiHttp = require('chai-http');
-var chai = require('chai');
-var assert = chai.assert;
-var server = require('../server');
+const chaiHttp = require('chai-http');
+const chai = require('chai');
+const assert = chai.assert;
+const server = require('../server');
 
 chai.use(chaiHttp);
 
@@ -19,7 +19,6 @@ suite('Functional Tests', function() {
     
     let thread_id;
     const delete_password = 'Password123';
-    // let thread_count;
     
     suite('POST', function() {
       test('POST new thread', done => {
@@ -31,7 +30,7 @@ suite('Functional Tests', function() {
             done();
           });
       });
-    });
+    }); // POST suite
     
     suite('GET', function() {
       test('GET list of threads', done => {
@@ -49,15 +48,12 @@ suite('Functional Tests', function() {
             assert.notProperty(res.body[0], 'delete_password', 'delete_password property is hidden');
             assert.notProperty(res.body[0], 'reported', 'reported property is hidden');
             thread_id = res.body[0]._id;
-            // thread_count = res.body.length;
-            console.log("Working with " + thread_id);
             done();
           });
       })
-    });
+    }); // GET suite
     
     suite('PUT', function() {
-      
       test('PUT to report a thread', done => {
         chai.request(server)
           .put('/api/threads/testing')
@@ -68,11 +64,10 @@ suite('Functional Tests', function() {
             done();
           });
       });  
-      
-      
     }); // PUT suite
     
     suite('DELETE', function() {
+      
       test('DELETE thread with wrong password', done => {
         chai.request(server)
           .delete('/api/threads/testing')
@@ -113,20 +108,20 @@ suite('Functional Tests', function() {
     }); // DELETE suite
     
 
-  });
+  }); // threads route testing suite
   
   suite('API ROUTING FOR /api/replies/:board', function() {
     
     const thread_delete_password = "Password123";
     const delete_password = "Test_Password 4567";
     const reply_text = "Test reply";
-    let thread_id, reply_id, reply_count;
+    let thread_id, reply_id;
     
     suite('POST', function() {
       
       test('POST a new reply', async () => {
         try {
-          // Add a new 'reply testing' thread
+          // Add a new thread for testing replies
           let res = await chai.request(server)
             .post('/api/threads/testing')
             .send({ text: 'reply testing', delete_password: thread_delete_password });
@@ -138,9 +133,8 @@ suite('Functional Tests', function() {
           assert.equal(res.status, 200);
           assert.isAbove(res.body.length, 0, 'At least one thread was returned');
           thread_id = res.body[0]._id;
-          console.log("Thread added: " + thread_id);
           
-          // Add a reply to thread_id
+          // Add a reply to the new thread
           res = await chai.request(server)
             .post('/api/replies/testing')
             .send({ thread_id, text: reply_text, delete_password });
@@ -162,9 +156,8 @@ suite('Functional Tests', function() {
             assert.property(res.body, 'replies', 'Response has a replies property');
             assert.isArray(res.body.replies, 'replies is an array');
             assert.isAbove(res.body.replies.length, 0, 'There is at least one reply');
-            reply_count = res.body.replies.length;
             assert.property(res.body.replies[0], '_id', 'Replies have an _id property');
-            reply_id = res.body.replies[0];
+            reply_id = res.body.replies[0]; // save reply_id for later tests
             assert.notProperty(res.body.replies[0], 'delete_password', 'Replies do not have delete_password property');
             assert.notProperty(res.body.replies[0], 'reported', 'Replies do not have reported property');          
             assert.property(res.body.replies[0], 'text', 'Replies have a text property');
@@ -178,8 +171,6 @@ suite('Functional Tests', function() {
     });
     
     suite('PUT', function() {
-      // returns 200 status
-      // returns 'success'
       test('PUT to report a reply', done => {
         chai.request(server)
           .put('/api/replies/testing')
@@ -190,12 +181,9 @@ suite('Functional Tests', function() {
             done();
           });
       });
-    });
+    }); // PUT suite
     
     suite('DELETE', function() {
-      // incorrect password returns 'incorrect password'
-      // correct password returns 'success'
-      // GET and confirm deleted reply is now '[deleted]'
       
       test('DELETE with incorrect password', done => {
         chai.request(server)
@@ -245,6 +233,6 @@ suite('Functional Tests', function() {
       
     }); // DELETE suite
     
-  });
+  }); // replies route testing suite
 
 });

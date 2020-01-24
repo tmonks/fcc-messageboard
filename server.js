@@ -18,7 +18,6 @@ const dbConfig = {
   useUnifiedTopology: true
 }
 
-
 const app = express();
 
 app.use('/public', express.static(process.cwd() + '/public'));
@@ -33,8 +32,6 @@ app.use(helmet.dnsPrefetchControl());
 app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
 
 
-// app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false })); //Parse URL-encoded bodies
 
